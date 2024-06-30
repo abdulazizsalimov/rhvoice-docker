@@ -3,7 +3,7 @@ FROM amd64/ubuntu:20.04
 ARG DEBIAN_FRONTEND=noninteractive
 ARG GLOBAL_PACKAGES="ca-certificates flac git lame locales opus-tools python-lxml python3 python3-pip python3-setuptools python3-wheel wget"
 ARG HRVOICE_PACKAGES="scons build-essential libspeechd-dev pkg-config"
-ARG PIP_PACKAGES="flask==2.3.3 pymorphy2 pymorphy2-dicts-ru rhvoice-wrapper scons lxml"
+ARG PIP_PACKAGES="flask==2.3.3 flask-cors pymorphy2 pymorphy2-dicts-ru rhvoice-wrapper scons lxml"
 
 RUN apt-get -y update && \
     apt-get -y install software-properties-common && \

@@ -6,6 +6,7 @@ from shlex import quote
 from urllib import parse
 
 from flask import Flask, request, make_response, Response, stream_with_context, escape
+from flask_cors import CORS  # Добавить импорт CORS
 from rhvoice_wrapper import TTS
 
 from rhvoice_rest_cache import CacheWorker
@@ -24,13 +25,12 @@ FORMATS = {'wav': 'audio/wav', 'mp3': 'audio/mpeg', 'opus': 'audio/ogg', 'flac':
 DEFAULT_FORMAT = 'mp3'
 
 app = Flask(__name__, static_url_path='')
-
+CORS(app)  # Разрешить всем доменам делать запросы
 
 def voice_streamer_nocache(text, voice, format_, sets):
     with tts.say(text, voice, format_, None, sets or None) as read:
         for chunk in read:
             yield chunk
-
 
 def voice_streamer_cache(text, voice, format_, sets):
     inst = cache.get(text, voice, format_, sets)
@@ -40,18 +40,15 @@ def voice_streamer_cache(text, voice, format_, sets):
     finally:
         inst.release()
 
-
 def chunked_stream(stream):
     b_break = b'\r\n'
     for chunk in stream:
         yield format(len(chunk), 'x').encode() + b_break + chunk + b_break
     yield b'0' + b_break * 2
 
-
 def set_headers():
     if CHUNKED_TRANSFER:
         return {'Transfer-Encoding': 'chunked', 'Connection': 'keep-alive'}
-
 
 @app.route('/say')
 @app.route('/rhasspy', methods=['POST'])
@@ -79,7 +76,6 @@ def say():
         stream = chunked_stream(stream)
     return Response(stream_with_context(stream), mimetype=FORMATS[format_], headers=set_headers())
 
-
 @app.route('/info')
 def info():
     return make_response({
@@ -96,28 +92,23 @@ def info():
         'rhvoice_wrapper_cmd': tts.cmd,
     })
 
-
 def _normalize_set(val):  # 0..100 -> -1.0..1
     try:
         return max(0, min(100, int(val)))/50.0-1
     except (TypeError, ValueError):
         return 0.0
 
-
 def _get_sets(args):
     keys = {'rate': 'absolute_rate', 'pitch': 'absolute_pitch', 'volume': 'absolute_volume'}
     return {keys[key]: _normalize_set(args[key]) for key in keys if key in args}
-
 
 def _get_def(any_, test, def_=None):
     if test not in any_ and len(any_):
         return def_ if def_ and def_ in any_ else next(iter(any_))
     return test
 
-
 def _check_env(word: str) -> bool:
     return word in os.environ and os.environ[word].lower() not in ['no', 'disable', 'false', '']
-
 
 def _get_cache_path():
     # Включаем поддержку кэша возвращая путь до него, или None
@@ -126,12 +117,10 @@ def _get_cache_path():
         os.makedirs(path, exist_ok=True)
         return path
 
-
 def cache_init() -> CacheWorker or None:
     path = _get_cache_path()
     dyn_cache = _check_env('RHVOICE_DYNCACHE')
     return CacheWorker(path, tts.say) if path or dyn_cache else None
-
 
 if __name__ == "__main__":
     tts = TTS()
